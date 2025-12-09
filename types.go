@@ -21,9 +21,13 @@ const (
 	PropItems                = "items"
 	PropMinimum              = "minimum"
 	PropMaximum              = "maximum"
-	PropMinLength            = "minLength"
-	PropMaxLength            = "maxLength"
+	PropExclusiveMinimum     = "exclusiveMinimum"
+	PropExclusiveMaximum     = "exclusiveMaximum"
+	PropMultipleOf           = "multipleOf"
 	PropPattern              = "pattern"
+	PropFormat               = "format"
+	PropMinItems             = "minItems"
+	PropMaxItems             = "maxItems"
 )
 
 // getTypeSchema はGoの基本型のJSON Schemaを返す。

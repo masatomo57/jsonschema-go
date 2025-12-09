@@ -37,9 +37,13 @@ func parseJSONTag(tag string) (name string, omitempty bool, skip bool) {
 //   - required: required配列に追加（別途処理）
 //   - minimum=N: 数値の最小値を設定
 //   - maximum=N: 数値の最大値を設定
-//   - minLength=N: 文字列の最小長を設定
-//   - maxLength=N: 文字列の最大長を設定
+//   - exclusiveMinimum=N: 数値がこの値より大きい必要がある
+//   - exclusiveMaximum=N: 数値がこの値より小さい必要がある
+//   - multipleOf=N: 数値がこの値の倍数である必要がある
 //   - pattern=REGEX: 文字列のパターンを設定
+//   - format=FORMAT: 文字列のフォーマットを設定（date-time, time, date, duration, email, hostname, ipv4, ipv6, uuid）
+//   - minItems=N: 配列の最小要素数を設定
+//   - maxItems=N: 配列の最大要素数を設定
 func parseValidationTag(tag string) map[string]any {
 	constraints := make(map[string]any)
 
@@ -69,16 +73,44 @@ func parseValidationTag(tag string) map[string]any {
 				if num, err := strconv.ParseFloat(value, 64); err == nil {
 					constraints[PropMaximum] = num
 				}
-			case "minLength":
-				if num, err := strconv.Atoi(value); err == nil {
-					constraints[PropMinLength] = num
+			case "exclusiveMinimum":
+				if num, err := strconv.ParseFloat(value, 64); err == nil {
+					constraints[PropExclusiveMinimum] = num
 				}
-			case "maxLength":
-				if num, err := strconv.Atoi(value); err == nil {
-					constraints[PropMaxLength] = num
+			case "exclusiveMaximum":
+				if num, err := strconv.ParseFloat(value, 64); err == nil {
+					constraints[PropExclusiveMaximum] = num
+				}
+			case "multipleOf":
+				if num, err := strconv.ParseFloat(value, 64); err == nil {
+					constraints[PropMultipleOf] = num
 				}
 			case "pattern":
 				constraints[PropPattern] = value
+			case "format":
+				// サポートされているフォーマット: date-time, time, date, duration, email, hostname, ipv4, ipv6, uuid
+				validFormats := map[string]bool{
+					"date-time": true,
+					"time":      true,
+					"date":      true,
+					"duration":  true,
+					"email":     true,
+					"hostname":  true,
+					"ipv4":      true,
+					"ipv6":      true,
+					"uuid":      true,
+				}
+				if validFormats[value] {
+					constraints[PropFormat] = value
+				}
+			case "minItems":
+				if num, err := strconv.Atoi(value); err == nil {
+					constraints[PropMinItems] = num
+				}
+			case "maxItems":
+				if num, err := strconv.Atoi(value); err == nil {
+					constraints[PropMaxItems] = num
+				}
 			}
 		}
 		// NOTE: "required"はisRequiredFieldで別途処理

@@ -229,11 +229,13 @@ func TestGenerate(t *testing.T) {
 			name: "正常系: バリデーション制約",
 			input: func() any {
 				type ValidatedStruct struct {
-					ID       int    `validate:"required,minimum=1,maximum=100"`
-					Name     string `validate:"required,minLength=1,maxLength=100"`
-					Email    string `validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$"`
-					Age      int    `validate:"minimum=0,maximum=150"`
-					Optional string `json:"optional,omitempty"`
+					ID       int      `validate:"required,minimum=1,maximum=100"`
+					Name     string   `validate:"required,pattern=^[a-zA-Z]+$"`
+					Email    string   `validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$,format=email"`
+					Age      int      `validate:"minimum=0,maximum=150"`
+					Score    float64  `validate:"multipleOf=0.5,exclusiveMinimum=0,exclusiveMaximum=100"`
+					Tags     []string `validate:"minItems=1,maxItems=10"`
+					Optional string   `json:"optional,omitempty"`
 				}
 				return ValidatedStruct{}
 			}(),
@@ -256,26 +258,54 @@ func TestGenerate(t *testing.T) {
 					t.Errorf("Expected ID maximum to be 100, got %v", idSchema["maximum"])
 				}
 
-				// Name制約の確認
+				// Nameパターンの確認
 				nameSchema, ok := props["Name"].(map[string]any)
 				if !ok {
 					t.Fatalf("Expected Name property")
 				}
-				if nameSchema["minLength"] != 1 {
-					t.Errorf("Expected Name minLength to be 1, got %v", nameSchema["minLength"])
-				}
-				if nameSchema["maxLength"] != 100 {
-					t.Errorf("Expected Name maxLength to be 100, got %v", nameSchema["maxLength"])
+				expectedPattern := "^[a-zA-Z]+$"
+				if nameSchema["pattern"] != expectedPattern {
+					t.Errorf("Expected Name pattern to be %s, got %v", expectedPattern, nameSchema["pattern"])
 				}
 
-				// Emailパターンの確認
+				// Emailパターンとフォーマットの確認
 				emailSchema, ok := props["Email"].(map[string]any)
 				if !ok {
 					t.Fatalf("Expected Email property")
 				}
-				expectedPattern := "^[a-z]+@[a-z]+\\.[a-z]+$"
-				if emailSchema["pattern"] != expectedPattern {
-					t.Errorf("Expected Email pattern to be %s, got %v", expectedPattern, emailSchema["pattern"])
+				expectedEmailPattern := "^[a-z]+@[a-z]+\\.[a-z]+$"
+				if emailSchema["pattern"] != expectedEmailPattern {
+					t.Errorf("Expected Email pattern to be %s, got %v", expectedEmailPattern, emailSchema["pattern"])
+				}
+				if emailSchema["format"] != "email" {
+					t.Errorf("Expected Email format to be email, got %v", emailSchema["format"])
+				}
+
+				// Score制約の確認
+				scoreSchema, ok := props["Score"].(map[string]any)
+				if !ok {
+					t.Fatalf("Expected Score property")
+				}
+				if scoreSchema["multipleOf"] != float64(0.5) {
+					t.Errorf("Expected Score multipleOf to be 0.5, got %v", scoreSchema["multipleOf"])
+				}
+				if scoreSchema["exclusiveMinimum"] != float64(0) {
+					t.Errorf("Expected Score exclusiveMinimum to be 0, got %v", scoreSchema["exclusiveMinimum"])
+				}
+				if scoreSchema["exclusiveMaximum"] != float64(100) {
+					t.Errorf("Expected Score exclusiveMaximum to be 100, got %v", scoreSchema["exclusiveMaximum"])
+				}
+
+				// Tags配列制約の確認
+				tagsSchema, ok := props["Tags"].(map[string]any)
+				if !ok {
+					t.Fatalf("Expected Tags property")
+				}
+				if tagsSchema["minItems"] != 1 {
+					t.Errorf("Expected Tags minItems to be 1, got %v", tagsSchema["minItems"])
+				}
+				if tagsSchema["maxItems"] != 10 {
+					t.Errorf("Expected Tags maxItems to be 10, got %v", tagsSchema["maxItems"])
 				}
 
 				// requiredフィールドの確認
@@ -307,10 +337,10 @@ func TestGenerate(t *testing.T) {
 
 				type User struct {
 					ID       int               `json:"id" validate:"required"`
-					Name     string            `json:"name" validate:"required,minLength=1,maxLength=100"`
-					Email    string            `json:"email" validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$"`
+					Name     string            `json:"name" validate:"required,pattern=^[a-zA-Z ]+$"`
+					Email    string            `json:"email" validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$,format=email"`
 					Age      int               `json:"age,omitempty" validate:"minimum=0,maximum=150"`
-					Tags     []string          `json:"tags"`
+					Tags     []string          `json:"tags" validate:"minItems=0,maxItems=20"`
 					Metadata map[string]string `json:"metadata"`
 					Address  Address           `json:"address"`
 				}
