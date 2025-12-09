@@ -6,27 +6,29 @@ import (
 	"testing"
 )
 
-// testCase は単一のテストケースを表す
-type testCase struct {
-	name    string
-	input   any
-	want    map[string]any
-	wantErr bool
-}
-
 func TestGenerate(t *testing.T) {
-	tests := []testCase{
+	type args struct {
+		v any
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[string]any
+		wantErr bool
+	}{
 		{
 			name: "正常系: 基本型",
-			input: func() any {
-				type BasicStruct struct {
-					Name   string
-					Age    int
-					Score  float64
-					Active bool
-				}
-				return BasicStruct{}
-			}(),
+			args: args{
+				v: func() any {
+					type BasicStruct struct {
+						Name   string
+						Age    int
+						Score  float64
+						Active bool
+					}
+					return BasicStruct{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -50,15 +52,17 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name: "正常系: JSONタグ",
-			input: func() any {
-				type TaggedStruct struct {
-					ID       int    `json:"id"`
-					Name     string `json:"name"`
-					Email    string `json:"email,omitempty"`
-					Password string `json:"-"`
-				}
-				return TaggedStruct{}
-			}(),
+			args: args{
+				v: func() any {
+					type TaggedStruct struct {
+						ID       int    `json:"id"`
+						Name     string `json:"name"`
+						Email    string `json:"email,omitempty"`
+						Password string `json:"-"`
+					}
+					return TaggedStruct{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -79,18 +83,20 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name: "正常系: ネストした構造体",
-			input: func() any {
-				type Address struct {
-					Street string
-					City   string
-				}
+			args: args{
+				v: func() any {
+					type Address struct {
+						Street string
+						City   string
+					}
 
-				type User struct {
-					Name    string
-					Address Address
-				}
-				return User{}
-			}(),
+					type User struct {
+						Name    string
+						Address Address
+					}
+					return User{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -118,14 +124,16 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name: "正常系: 配列",
-			input: func() any {
-				type ArrayStruct struct {
-					Tags    []string
-					Numbers []int
-					Scores  []float64
-				}
-				return ArrayStruct{}
-			}(),
+			args: args{
+				v: func() any {
+					type ArrayStruct struct {
+						Tags    []string
+						Numbers []int
+						Scores  []float64
+					}
+					return ArrayStruct{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -155,13 +163,15 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name: "正常系: マップ",
-			input: func() any {
-				type MapStruct struct {
-					Metadata map[string]string
-					Config   map[string]int
-				}
-				return MapStruct{}
-			}(),
+			args: args{
+				v: func() any {
+					type MapStruct struct {
+						Metadata map[string]string
+						Config   map[string]int
+					}
+					return MapStruct{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -185,18 +195,20 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name: "正常系: バリデーション制約",
-			input: func() any {
-				type ValidatedStruct struct {
-					ID       int      `validate:"required,minimum=1,maximum=100"`
-					Name     string   `validate:"required,pattern=^[a-zA-Z]+$"`
-					Email    string   `validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$,format=email"`
-					Age      int      `validate:"minimum=0,maximum=150"`
-					Score    float64  `validate:"multipleOf=0.5,exclusiveMinimum=0,exclusiveMaximum=100"`
-					Tags     []string `validate:"minItems=1,maxItems=10"`
-					Optional string   `json:"optional,omitempty"`
-				}
-				return ValidatedStruct{}
-			}(),
+			args: args{
+				v: func() any {
+					type ValidatedStruct struct {
+						ID       int      `validate:"required,minimum=1,maximum=100"`
+						Name     string   `validate:"required,pattern=^[a-zA-Z]+$"`
+						Email    string   `validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$,format=email"`
+						Age      int      `validate:"minimum=0,maximum=150"`
+						Score    float64  `validate:"multipleOf=0.5,exclusiveMinimum=0,exclusiveMaximum=100"`
+						Tags     []string `validate:"minItems=1,maxItems=10"`
+						Optional string   `json:"optional,omitempty"`
+					}
+					return ValidatedStruct{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -244,23 +256,25 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name: "正常系: 複雑な例",
-			input: func() any {
-				type Address struct {
-					Street string `json:"street" validate:"required"`
-					City   string `json:"city" validate:"required"`
-				}
+			args: args{
+				v: func() any {
+					type Address struct {
+						Street string `json:"street" validate:"required"`
+						City   string `json:"city" validate:"required"`
+					}
 
-				type User struct {
-					ID       int               `json:"id" validate:"required"`
-					Name     string            `json:"name" validate:"required,pattern=^[a-zA-Z ]+$"`
-					Email    string            `json:"email" validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$,format=email"`
-					Age      int               `json:"age,omitempty" validate:"minimum=0,maximum=150"`
-					Tags     []string          `json:"tags" validate:"minItems=0,maxItems=20"`
-					Metadata map[string]string `json:"metadata"`
-					Address  Address           `json:"address"`
-				}
-				return User{}
-			}(),
+					type User struct {
+						ID       int               `json:"id" validate:"required"`
+						Name     string            `json:"name" validate:"required,pattern=^[a-zA-Z ]+$"`
+						Email    string            `json:"email" validate:"pattern=^[a-z]+@[a-z]+\\.[a-z]+$,format=email"`
+						Age      int               `json:"age,omitempty" validate:"minimum=0,maximum=150"`
+						Tags     []string          `json:"tags" validate:"minItems=0,maxItems=20"`
+						Metadata map[string]string `json:"metadata"`
+						Address  Address           `json:"address"`
+					}
+					return User{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -314,27 +328,32 @@ func TestGenerate(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		// エラーケース
 		{
-			name:    "異常系: nil値",
-			input:   nil,
+			name: "異常系: nil値",
+			args: args{
+				v: nil,
+			},
 			want:    nil,
 			wantErr: true,
 		},
 		{
-			name:    "異常系: 非構造体型",
-			input:   "not a struct",
+			name: "異常系: 非構造体型",
+			args: args{
+				v: "not a struct",
+			},
 			want:    nil,
 			wantErr: true,
 		},
 		{
 			name: "正常系: 構造体へのポインタ",
-			input: func() any {
-				type TestStruct struct {
-					Name string
-				}
-				return &TestStruct{}
-			}(),
+			args: args{
+				v: func() any {
+					type TestStruct struct {
+						Name string
+					}
+					return &TestStruct{}
+				}(),
+			},
 			want: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -351,7 +370,7 @@ func TestGenerate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schema, err := Generate(tt.input)
+			schema, err := Generate(tt.args.v)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Generate() error = %v, wantErr %v", err, tt.wantErr)
 				return
