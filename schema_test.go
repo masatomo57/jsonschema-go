@@ -2,18 +2,16 @@ package jsonschema
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
-
-// verifyFunc はカスタム検証ロジック用の関数型
-type verifyFunc func(t *testing.T, schema map[string]any)
 
 // testCase は単一のテストケースを表す
 type testCase struct {
 	name    string
 	input   any
+	want    map[string]any
 	wantErr bool
-	verify  verifyFunc
 }
 
 func TestGenerate(t *testing.T) {
@@ -29,41 +27,26 @@ func TestGenerate(t *testing.T) {
 				}
 				return BasicStruct{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				if schema["type"] != "object" {
-					t.Errorf("Expected type object, got %v", schema["type"])
-				}
-
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				// Nameフィールドの確認
-				nameSchema, ok := props["Name"].(map[string]any)
-				if !ok || nameSchema["type"] != "string" {
-					t.Errorf("Expected Name to be string type")
-				}
-
-				// Ageフィールドの確認
-				ageSchema, ok := props["Age"].(map[string]any)
-				if !ok || ageSchema["type"] != "integer" {
-					t.Errorf("Expected Age to be integer type")
-				}
-
-				// Scoreフィールドの確認
-				scoreSchema, ok := props["Score"].(map[string]any)
-				if !ok || scoreSchema["type"] != "number" {
-					t.Errorf("Expected Score to be number type")
-				}
-
-				// Activeフィールドの確認
-				activeSchema, ok := props["Active"].(map[string]any)
-				if !ok || activeSchema["type"] != "boolean" {
-					t.Errorf("Expected Active to be boolean type")
-				}
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"Name": map[string]any{
+						"type": "string",
+					},
+					"Age": map[string]any{
+						"type": "integer",
+					},
+					"Score": map[string]any{
+						"type": "number",
+					},
+					"Active": map[string]any{
+						"type": "boolean",
+					},
+				},
+				"required":             []string{"Name", "Age", "Score", "Active"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		{
 			name: "正常系: JSONタグ",
@@ -76,32 +59,23 @@ func TestGenerate(t *testing.T) {
 				}
 				return TaggedStruct{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				// カスタムJSON名の確認
-				if _, ok := props["id"]; !ok {
-					t.Errorf("Expected 'id' property")
-				}
-				if _, ok := props["name"]; !ok {
-					t.Errorf("Expected 'name' property")
-				}
-				if _, ok := props["email"]; !ok {
-					t.Errorf("Expected 'email' property")
-				}
-
-				// Passwordが除外されていることを確認
-				if _, ok := props["Password"]; ok {
-					t.Errorf("Password should be excluded")
-				}
-				if _, ok := props["password"]; ok {
-					t.Errorf("password should be excluded")
-				}
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id": map[string]any{
+						"type": "integer",
+					},
+					"name": map[string]any{
+						"type": "string",
+					},
+					"email": map[string]any{
+						"type": "string",
+					},
+				},
+				"required":             []string{"id", "name"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		{
 			name: "正常系: ネストした構造体",
@@ -117,34 +91,30 @@ func TestGenerate(t *testing.T) {
 				}
 				return User{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				addressSchema, ok := props["Address"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected Address property")
-				}
-
-				if addressSchema["type"] != "object" {
-					t.Errorf("Expected Address to be object type")
-				}
-
-				addressProps, ok := addressSchema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected Address properties")
-				}
-
-				if _, ok := addressProps["Street"]; !ok {
-					t.Errorf("Expected Street property in Address")
-				}
-				if _, ok := addressProps["City"]; !ok {
-					t.Errorf("Expected City property in Address")
-				}
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"Name": map[string]any{
+						"type": "string",
+					},
+					"Address": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"Street": map[string]any{
+								"type": "string",
+							},
+							"City": map[string]any{
+								"type": "string",
+							},
+						},
+						"required":             []string{"Street", "City"},
+						"additionalProperties": false,
+					},
+				},
+				"required":             []string{"Name", "Address"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		{
 			name: "正常系: 配列",
@@ -156,35 +126,32 @@ func TestGenerate(t *testing.T) {
 				}
 				return ArrayStruct{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				// Tags配列の確認
-				tagsSchema, ok := props["Tags"].(map[string]any)
-				if !ok || tagsSchema["type"] != "array" {
-					t.Errorf("Expected Tags to be array type")
-				}
-
-				tagsItems, ok := tagsSchema["items"].(map[string]any)
-				if !ok || tagsItems["type"] != "string" {
-					t.Errorf("Expected Tags items to be string type")
-				}
-
-				// Numbers配列の確認
-				numbersSchema, ok := props["Numbers"].(map[string]any)
-				if !ok || numbersSchema["type"] != "array" {
-					t.Errorf("Expected Numbers to be array type")
-				}
-
-				numbersItems, ok := numbersSchema["items"].(map[string]any)
-				if !ok || numbersItems["type"] != "integer" {
-					t.Errorf("Expected Numbers items to be integer type")
-				}
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"Tags": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+					"Numbers": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "integer",
+						},
+					},
+					"Scores": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "number",
+						},
+					},
+				},
+				"required":             []string{"Tags", "Numbers", "Scores"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		{
 			name: "正常系: マップ",
@@ -195,35 +162,26 @@ func TestGenerate(t *testing.T) {
 				}
 				return MapStruct{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				// Metadataマップの確認
-				metadataSchema, ok := props["Metadata"].(map[string]any)
-				if !ok || metadataSchema["type"] != "object" {
-					t.Errorf("Expected Metadata to be object type")
-				}
-
-				metadataProps, ok := metadataSchema["additionalProperties"].(map[string]any)
-				if !ok || metadataProps["type"] != "string" {
-					t.Errorf("Expected Metadata additionalProperties to be string type")
-				}
-
-				// Configマップの確認
-				configSchema, ok := props["Config"].(map[string]any)
-				if !ok || configSchema["type"] != "object" {
-					t.Errorf("Expected Config to be object type")
-				}
-
-				configProps, ok := configSchema["additionalProperties"].(map[string]any)
-				if !ok || configProps["type"] != "integer" {
-					t.Errorf("Expected Config additionalProperties to be integer type")
-				}
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"Metadata": map[string]any{
+						"type": "object",
+						"additionalProperties": map[string]any{
+							"type": "string",
+						},
+					},
+					"Config": map[string]any{
+						"type": "object",
+						"additionalProperties": map[string]any{
+							"type": "integer",
+						},
+					},
+				},
+				"required":             []string{"Metadata", "Config"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		{
 			name: "正常系: バリデーション制約",
@@ -239,93 +197,50 @@ func TestGenerate(t *testing.T) {
 				}
 				return ValidatedStruct{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				// ID制約の確認
-				idSchema, ok := props["ID"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected ID property")
-				}
-				if idSchema["minimum"] != float64(1) {
-					t.Errorf("Expected ID minimum to be 1, got %v", idSchema["minimum"])
-				}
-				if idSchema["maximum"] != float64(100) {
-					t.Errorf("Expected ID maximum to be 100, got %v", idSchema["maximum"])
-				}
-
-				// Nameパターンの確認
-				nameSchema, ok := props["Name"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected Name property")
-				}
-				expectedPattern := "^[a-zA-Z]+$"
-				if nameSchema["pattern"] != expectedPattern {
-					t.Errorf("Expected Name pattern to be %s, got %v", expectedPattern, nameSchema["pattern"])
-				}
-
-				// Emailパターンとフォーマットの確認
-				emailSchema, ok := props["Email"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected Email property")
-				}
-				expectedEmailPattern := "^[a-z]+@[a-z]+\\.[a-z]+$"
-				if emailSchema["pattern"] != expectedEmailPattern {
-					t.Errorf("Expected Email pattern to be %s, got %v", expectedEmailPattern, emailSchema["pattern"])
-				}
-				if emailSchema["format"] != "email" {
-					t.Errorf("Expected Email format to be email, got %v", emailSchema["format"])
-				}
-
-				// Score制約の確認
-				scoreSchema, ok := props["Score"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected Score property")
-				}
-				if scoreSchema["multipleOf"] != float64(0.5) {
-					t.Errorf("Expected Score multipleOf to be 0.5, got %v", scoreSchema["multipleOf"])
-				}
-				if scoreSchema["exclusiveMinimum"] != float64(0) {
-					t.Errorf("Expected Score exclusiveMinimum to be 0, got %v", scoreSchema["exclusiveMinimum"])
-				}
-				if scoreSchema["exclusiveMaximum"] != float64(100) {
-					t.Errorf("Expected Score exclusiveMaximum to be 100, got %v", scoreSchema["exclusiveMaximum"])
-				}
-
-				// Tags配列制約の確認
-				tagsSchema, ok := props["Tags"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected Tags property")
-				}
-				if tagsSchema["minItems"] != 1 {
-					t.Errorf("Expected Tags minItems to be 1, got %v", tagsSchema["minItems"])
-				}
-				if tagsSchema["maxItems"] != 10 {
-					t.Errorf("Expected Tags maxItems to be 10, got %v", tagsSchema["maxItems"])
-				}
-
-				// requiredフィールドの確認
-				required, ok := schema["required"].([]string)
-				if !ok {
-					t.Fatalf("Expected required array")
-				}
-
-				requiredMap := make(map[string]bool)
-				for _, r := range required {
-					requiredMap[r] = true
-				}
-
-				if !requiredMap["ID"] {
-					t.Errorf("Expected ID to be required")
-				}
-				if !requiredMap["Name"] {
-					t.Errorf("Expected Name to be required")
-				}
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"ID": map[string]any{
+						"type":    "integer",
+						"minimum": float64(1),
+						"maximum": float64(100),
+					},
+					"Name": map[string]any{
+						"type":    "string",
+						"pattern": "^[a-zA-Z]+$",
+					},
+					"Email": map[string]any{
+						"type":    "string",
+						"pattern": "^[a-z]+@[a-z]+\\.[a-z]+$",
+						"format":  "email",
+					},
+					"Age": map[string]any{
+						"type":    "integer",
+						"minimum": float64(0),
+						"maximum": float64(150),
+					},
+					"Score": map[string]any{
+						"type":             "number",
+						"multipleOf":       float64(0.5),
+						"exclusiveMinimum": float64(0),
+						"exclusiveMaximum": float64(100),
+					},
+					"Tags": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+						"minItems": 1,
+						"maxItems": 10,
+					},
+					"optional": map[string]any{
+						"type": "string",
+					},
+				},
+				"required":             []string{"ID", "Name", "Email", "Age", "Score", "Tags"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		{
 			name: "正常系: 複雑な例",
@@ -346,56 +261,71 @@ func TestGenerate(t *testing.T) {
 				}
 				return User{}
 			}(),
-			wantErr: false,
-			verify: func(t *testing.T, schema map[string]any) {
-				props, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected properties map")
-				}
-
-				// すべての期待されるプロパティが存在することを確認
-				expectedProps := []string{"id", "name", "email", "age", "tags", "metadata", "address"}
-				for _, prop := range expectedProps {
-					if _, ok := props[prop]; !ok {
-						t.Errorf("Expected property %s not found", prop)
-					}
-				}
-
-				// ネストしたaddress構造体の確認
-				addressSchema, ok := props["address"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected address property")
-				}
-
-				addressProps, ok := addressSchema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("Expected address properties")
-				}
-
-				if _, ok := addressProps["street"]; !ok {
-					t.Errorf("Expected street property in address")
-				}
-				if _, ok := addressProps["city"]; !ok {
-					t.Errorf("Expected city property in address")
-				}
-
-				// デバッグ用にスキーマを出力
-				jsonBytes, _ := json.MarshalIndent(schema, "", "  ")
-				t.Logf("Generated schema:\n%s", string(jsonBytes))
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id": map[string]any{
+						"type": "integer",
+					},
+					"name": map[string]any{
+						"type":    "string",
+						"pattern": "^[a-zA-Z ]+$",
+					},
+					"email": map[string]any{
+						"type":    "string",
+						"pattern": "^[a-z]+@[a-z]+\\.[a-z]+$",
+						"format":  "email",
+					},
+					"age": map[string]any{
+						"type":    "integer",
+						"minimum": float64(0),
+						"maximum": float64(150),
+					},
+					"tags": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+						"minItems": 0,
+						"maxItems": 20,
+					},
+					"metadata": map[string]any{
+						"type": "object",
+						"additionalProperties": map[string]any{
+							"type": "string",
+						},
+					},
+					"address": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"street": map[string]any{
+								"type": "string",
+							},
+							"city": map[string]any{
+								"type": "string",
+							},
+						},
+						"required":             []string{"street", "city"},
+						"additionalProperties": false,
+					},
+				},
+				"required":             []string{"id", "name", "email", "tags", "metadata", "address"},
+				"additionalProperties": false,
 			},
+			wantErr: false,
 		},
 		// エラーケース
 		{
 			name:    "異常系: nil値",
 			input:   nil,
+			want:    nil,
 			wantErr: true,
-			verify:  nil,
 		},
 		{
 			name:    "異常系: 非構造体型",
 			input:   "not a struct",
+			want:    nil,
 			wantErr: true,
-			verify:  nil,
 		},
 		{
 			name: "正常系: 構造体へのポインタ",
@@ -405,8 +335,17 @@ func TestGenerate(t *testing.T) {
 				}
 				return &TestStruct{}
 			}(),
+			want: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"Name": map[string]any{
+						"type": "string",
+					},
+				},
+				"required":             []string{"Name"},
+				"additionalProperties": false,
+			},
 			wantErr: false,
-			verify:  nil,
 		},
 	}
 
@@ -417,8 +356,12 @@ func TestGenerate(t *testing.T) {
 				t.Errorf("Generate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if err == nil && tt.verify != nil {
-				tt.verify(t, schema)
+			if err == nil && tt.want != nil {
+				if !reflect.DeepEqual(schema, tt.want) {
+					gotJSON, _ := json.MarshalIndent(schema, "", "  ")
+					wantJSON, _ := json.MarshalIndent(tt.want, "", "  ")
+					t.Errorf("Generate() = \n%s\nwant \n%s", string(gotJSON), string(wantJSON))
+				}
 			}
 		})
 	}
